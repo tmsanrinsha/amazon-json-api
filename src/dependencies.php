@@ -1,13 +1,31 @@
 <?php
 // DIC configuration
 
+use ApaiIO\Configuration\GenericConfiguration;
+use ApaiIO\Operations\Lookup;
+use ApaiIO\ApaiIO;
+
 $container = $app->getContainer();
 
-// view renderer
-$container['renderer'] = function ($c) {
-    $settings = $c->get('settings')['renderer'];
-    return new Slim\Views\PhpRenderer($settings['template_path']);
+$container['lookup'] = function ($c) {
+    return new Lookup();
 };
+
+$container['apaiio'] = function ($c) {
+    $client = new \GuzzleHttp\Client();
+    $request = new \ApaiIO\Request\GuzzleRequest($client);
+
+    $conf = new GenericConfiguration();
+    $conf
+        ->setCountry('co.jp')
+        ->setAccessKey($c['settings']['amazon']['AWSAccessKeyId'])
+        ->setSecretKey($c['settings']['amazon']['AWSSecretKey'])
+        ->setAssociateTag($c['settings']['amazon']['AWSAssociateTag'])
+        ->setRequest($request);
+
+    return new ApaiIO($conf);
+};
+
 
 // monolog
 $container['logger'] = function ($c) {
