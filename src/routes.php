@@ -1,6 +1,4 @@
 <?php
-// Routes
-
 use GuzzleHttp\Exception\RequestException;
 use GuzzleHttp\Psr7;
 
@@ -12,14 +10,21 @@ $app->get('/asin/{asin}', function ($request, $response, $args) {
     try {
         $res = $this->apaiio->runOperation($this->lookup);
     } catch(RequestException $e) {
-        $this->logger->error(Psr7\str($e->getRequest()));
-        $this->logger->error(Psr7\str($e->getResponse()));
+        $strRequest = Psr7\str($e->getRequest());
+        $strResponse = '';
+        if (!is_null($e->getResponse())) {
+            $strResponse = Psr7\str($e->getResponse());
+        }
+
+        $this->logger->error($strRequest);
+        $this->logger->error($strResponse);
+
         return $response->withJson([
             "error" => [
-                "request" => Psr7\str($e->getRequest()),
-                "response" => Psr7\str($e->getResponse()),
+                "request" => $strRequest,
+                "response" => $strResponse,
             ]
-        ], $e->getCode());
+        ], $e->getCode() ?: 500);
     }
 
     $results = simplexml_load_string($res);
@@ -44,13 +49,14 @@ $app->get('/asin/{asin}', function ($request, $response, $args) {
 
     $item = $results->Items->Item[0];
 
+    $ret = [
+        "PageURL"=> (string) $item->DetailPageURL,
+        "ImageURL"=> (string) $item->MediumImage->URL,
+        "ImageHeight"=> (string) $item->MediumImage->Height,
+        "ImageWidth"=> (string) $item->MediumImage->Width,
+    ];
 
-    return $response->withJson([
-        "asin"=> (string) $item->ASIN,
-        "title"=> (string) $item->ItemAttributes->Title,
-        "author" => (string) $item->ItemAttributes->Author,
-        "manufacturer" => (string) $item->ItemAttributes->Manufacturer,
-        "item_url"=> (string) $item_url = $item->DetailPageURL,
-        "image_url"=> (string) $item->MediumImage->URL,
-    ]);
+    $ret['ItemAttributes'] = json_decode(json_encode($item->ItemAttributes), true);
+
+    return $response->withJson($ret);
 });
